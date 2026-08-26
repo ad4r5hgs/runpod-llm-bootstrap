@@ -1,0 +1,11 @@
+config.env
+*.log
+*.zip
+*.tar.gz
+.env
+.cache/
+*-release.json
+manifest.env
+/opt/
+/models/
+agent-reference/
