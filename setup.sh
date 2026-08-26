@@ -102,7 +102,9 @@ resolve_llama_asset() {
     "https://api.github.com/repos/${LLAMA_CPP_PROVIDER}/releases/tags/${LLAMA_CPP_TAG}" \
     -o "$release_json" || die "Could not query ${LLAMA_CPP_PROVIDER} for release ${LLAMA_CPP_TAG}."
 
-  read -r asset_name asset_url < <(python3 - "$release_json" "$LLAMA_CPP_CUDA" "${LLAMA_CPP_ASSET_NAME:-}" <<'PY'
+  # The script-wide IFS intentionally excludes spaces. Override it here so
+  # Python's space-separated asset name and URL are read into two variables.
+  IFS=$' \t' read -r asset_name asset_url < <(python3 - "$release_json" "$LLAMA_CPP_CUDA" "${LLAMA_CPP_ASSET_NAME:-}" <<'PY'
 import json, re, sys
 path, cuda, expected_name = sys.argv[1:]
 data = json.load(open(path, encoding='utf-8'))
