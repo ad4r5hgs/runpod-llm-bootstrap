@@ -43,7 +43,16 @@ check_llama_libraries() {
 check_reasoning_flags() {
   configure_llama_runtime
   build_reasoning_args
-  "${LLAMA_DIR}/llama-cli" --help 2>&1 | grep -Eq -- '--reasoning|--reasoning-budget'
+  local help_output
+  help_output="$("${LLAMA_DIR}/llama-cli" --help 2>&1 || true)"
+  grep -Eq -- '--reasoning|--reasoning-budget' <<< "$help_output"
+}
+
+check_mtp_flags() {
+  configure_llama_runtime
+  local help_output
+  help_output="$("${LLAMA_DIR}/llama-cli" --help 2>&1 || true)"
+  grep -Eq -- '--spec-type|--spec-draft-model|--spec-draft-n-max' <<< "$help_output"
 }
 
 check_disk_headroom() {
@@ -59,6 +68,7 @@ check 'llama-server exists' test -x "${LLAMA_DIR}/llama-server"
 check 'llama.cpp shared libraries resolve' check_llama_libraries
 check 'llama.cpp sees CUDA' check_llama_cuda
 check 'reasoning flags supported' check_reasoning_flags
+check 'native MTP flags supported' check_mtp_flags
 check 'main model exists' test -f "${MODEL_DIR}/${MODEL_FILE}"
 check 'MTP model exists' test -f "${MODEL_DIR}/${MTP_FILE}"
 check 'disk headroom >= 5 GiB' check_disk_headroom
