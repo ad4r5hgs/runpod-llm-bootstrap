@@ -142,11 +142,14 @@ decoding diagnostics. Set `TEST_TARGET_WORDS`, `TEST_REASONING_BUDGET`,
 
 ## Remote endpoint (secondary phase)
 
-`llama-server` provides an HTTP server, web UI, and OpenAI-compatible API routes. The later remote phase should use:
+`./run-server.sh` starts `llama-server` (HTTP UI + OpenAI-compatible `/v1`
+routes) inside a detached tmux session by default (`tmux attach -t qwen` to
+watch it, `./run-server.sh --foreground` to debug in the current terminal).
+It always binds `0.0.0.0:8080` so the RunPod HTTP proxy and coding harnesses
+can reach it, so `LLAMA_API_KEY` in `config.env` is mandatory and `config.env`
+must never be committed.
 
-- `--host 0.0.0.0`
-- `--port 8080`
-- an API key
-- RunPod's HTTP proxy or another authenticated HTTPS front end
+Use the RunPod `...-8080.proxy.runpod.net` URL as the harness base URL
+(plus `/v1`), the same key, and model id `qwen3.8-27b-philbert`.
 
 Do not expose an unauthenticated llama-server directly to the public internet.
