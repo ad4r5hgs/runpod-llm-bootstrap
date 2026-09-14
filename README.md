@@ -96,6 +96,31 @@ Q4_0 KV cache is a memory/performance trade-off and may affect long-context
 quality. If the full-context allocation fails on the A40, do not partially
 offload weights to CPU: lower `CONTEXT_SIZE` or use a larger GPU instead.
 
+## Speed tuning: Step 1 (helper) + Step 2 (scratch paper)
+
+These steps keep the full 262,144-token allocation. Reasoning is turned off
+during the sweep so runs are comparable; it is the fastest setting.
+
+Run in this order on the Pod:
+
+```bash
+cp config.env.example config.env
+./setup.sh
+./doctor.sh
+./bench-mtp-sweep.sh
+```
+
+`bench-mtp-sweep.sh` tries helper depths 1, 2, 3, 4, a smart 16 + 0.8 combo
+(when the binary supports `--spec-draft-p-min`), and a helper-off baseline,
+for each scratch-paper pair in `SWEEP_KV_PAIRS` (default `q4_0` vs `q8_0`).
+It prints a summary table where higher Generation t/s wins. Keep the winner in
+`config.env` (`MTP_DRAFT_N_MAX`, `MTP_DRAFT_P_MIN`, `CACHE_TYPE_K/V`), then
+re-run `./doctor.sh` and `./test-xhigh-thinking.sh`.
+
+`MTP_DRAFT_P_MIN` is optional. Empty means the flag is omitted, so the pinned
+`b10182` build keeps working. Set it (for example `0.8`) only when
+`llama-cli --help` lists `--spec-draft-p-min`.
+
 ## Full-context xhigh-thinking test
 
 After setup completes, run:

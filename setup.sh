@@ -225,6 +225,7 @@ verify_runtime_config() {
   build_reasoning_args || die "Invalid reasoning configuration."
   build_performance_args || die "Invalid performance configuration."
   build_server_args || die "Invalid server configuration."
+  build_mtp_args || die "Invalid MTP configuration."
 }
 
 verify_performance_flags() {
@@ -237,6 +238,10 @@ verify_performance_flags() {
 
   help_output="$("${LLAMA_DIR}/llama-server" --help 2>&1)" || die "llama-server --help failed."
   grep -Fq -- '--parallel' <<< "$help_output" || die "Pinned llama.cpp build does not support --parallel."
+
+  for flag in --spec-type --spec-draft-n-max; do
+    grep -Fq -- "$flag" <<< "$help_output" || grep -Fq -- "$flag" <<< "$("${LLAMA_DIR}/llama-cli" --help 2>&1)" || die "Pinned llama.cpp build does not support ${flag}."
+  done
 }
 
 model_size_bytes() {
@@ -281,7 +286,7 @@ smoke_test_q8() {
       die "Q8 CUDA inference smoke test failed."
     }
   printf '%s\n' "$output"
-  echo "$output" | grep -Eq 'Generation:|generated|tokens' || die "Q8 smoke test completed without recognizable generation statistics."
+  echo "$output" | grep -Eq 'Generation:|generated|tokens|t/s' || die "Q8 smoke test completed without recognizable generation statistics."
 }
 
 smoke_test_mtp() {
@@ -291,10 +296,7 @@ smoke_test_mtp() {
     --model "${MODEL_DIR}/${MODEL_FILE}" \
     --gpu-layers "${GPU_LAYERS}" \
     --ctx-size "${SMOKE_CTX_SIZE}" \
-    --spec-type draft-mtp \
-    --spec-draft-model "${MODEL_DIR}/${MTP_FILE}" \
-    --spec-draft-ngl "${MTP_GPU_LAYERS}" \
-    --spec-draft-n-max "${MTP_DRAFT_N_MAX}" \
+    "${MTP_ARGS[@]}" \
     "${PERFORMANCE_ARGS[@]}" \
     "${REASONING_ARGS[@]}" \
     --n-predict "${SMOKE_N_PREDICT}" \
@@ -303,7 +305,7 @@ smoke_test_mtp() {
       die "Q8 + MTP inference smoke test failed."
     }
   printf '%s\n' "$output"
-  echo "$output" | grep -Eq 'Generation:|generated|tokens' || die "MTP smoke test completed without recognizable generation statistics."
+  echo "$output" | grep -Eq 'Generation:|generated|tokens|t/s' || die "MTP smoke test completed without recognizable generation statistics."
 }
 
 write_manifest() {
@@ -320,7 +322,8 @@ MODEL_FILE=${MODEL_FILE}
 MTP_FILE=${MTP_FILE}
 GPU_LAYERS=${GPU_LAYERS}
 MTP_GPU_LAYERS=${MTP_GPU_LAYERS}
-MTP_DRAFT_N_MAX=${MTP_DRAFT_N_MAX}
+MTP_DRAFT_N_MAX=${MTP_DRAFT_N_MAX:-3}
+MTP_DRAFT_P_MIN=${MTP_DRAFT_P_MIN:-}
 CONTEXT_SIZE=${CONTEXT_SIZE}
 FLASH_ATTN=${FLASH_ATTN}
 CACHE_TYPE_K=${CACHE_TYPE_K}
@@ -380,7 +383,7 @@ main() {
   echo "MTP model:  ${MODEL_DIR}/${MTP_FILE}"
   echo "llama.cpp:  ${LLAMA_DIR}"
   echo "Context default: ${CONTEXT_SIZE}"
-  echo "MTP n-max: ${MTP_DRAFT_N_MAX}"
+  echo "MTP n-max: ${MTP_DRAFT_N_MAX}${MTP_DRAFT_P_MIN:+ (p-min ${MTP_DRAFT_P_MIN})}"
   echo "Reasoning: ${REASONING_MODE}${REASONING_BUDGET:+ (budget ${REASONING_BUDGET})}"
 }
 

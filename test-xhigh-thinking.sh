@@ -21,6 +21,8 @@ TEST_TARGET_WORDS="${TEST_TARGET_WORDS:-120}"
 TEST_N_PREDICT="${TEST_N_PREDICT:-32768}"
 TEST_REASONING_BUDGET="${TEST_REASONING_BUDGET:-32000}"
 TEST_PROMPT="${TEST_PROMPT:-}"
+MTP_DRAFT_N_MAX="${MTP_DRAFT_N_MAX:-3}"
+MTP_DRAFT_P_MIN="${MTP_DRAFT_P_MIN:-}"
 
 [[ "$TEST_TARGET_WORDS" =~ ^[1-9][0-9]*$ ]] || die "TEST_TARGET_WORDS must be a positive integer."
 [[ "$TEST_N_PREDICT" =~ ^[1-9][0-9]*$ ]] || die "TEST_N_PREDICT must be a positive integer."
@@ -33,11 +35,15 @@ fi
 
 configure_llama_runtime
 build_performance_args
+build_mtp_args || die "Invalid MTP configuration."
 
 [[ -x "${LLAMA_DIR}/llama-cli" ]] || die "llama-cli not found: ${LLAMA_DIR}/llama-cli"
 help_output="$("${LLAMA_DIR}/llama-cli" --help 2>&1 || true)"
 grep -Fq -- '--reasoning' <<< "$help_output" || die "Pinned llama.cpp build does not support --reasoning."
 grep -Fq -- '--reasoning-budget' <<< "$help_output" || die "Pinned llama.cpp build does not support --reasoning-budget."
+if [[ -n "${MTP_DRAFT_P_MIN:-}" ]]; then
+  grep -Fq -- '--spec-draft-p-min' <<< "$help_output" || die "MTP_DRAFT_P_MIN is set but this llama.cpp build does not list --spec-draft-p-min. Leave it empty for b10182."
+fi
 
 # b10182 lacks --reasoning-effort. Its Qwen template's default effort is used
 # with reasoning enabled; newer builds get the explicit xhigh selector.
@@ -52,10 +58,7 @@ args=(
   --model "${MODEL_DIR}/${MODEL_FILE}"
   --gpu-layers "${GPU_LAYERS}"
   --ctx-size "${CONTEXT_SIZE}"
-  --spec-type draft-mtp
-  --spec-draft-model "${MODEL_DIR}/${MTP_FILE}"
-  --spec-draft-ngl "${MTP_GPU_LAYERS}"
-  --spec-draft-n-max "${MTP_DRAFT_N_MAX}"
+  "${MTP_ARGS[@]}"
   "${PERFORMANCE_ARGS[@]}"
   "${reasoning_args[@]}"
   --n-predict "$TEST_N_PREDICT"
@@ -66,8 +69,8 @@ log_file="$(mktemp "${TMPDIR:-/tmp}/qwen-xhigh-thinking.XXXXXX.log")"
 
 printf 'Qwen full-context xhigh-thinking test\n'
 printf 'Context capacity: %s tokens\n' "$CONTEXT_SIZE"
-printf 'MTP: draft-mtp, n-max=%s, target GPU layers=%s, draft GPU layers=%s\n' \
-  "$MTP_DRAFT_N_MAX" "$GPU_LAYERS" "$MTP_GPU_LAYERS"
+printf 'MTP: draft-mtp, n-max=%s%s, target GPU layers=%s, draft GPU layers=%s\n' \
+  "$MTP_DRAFT_N_MAX" "${MTP_DRAFT_P_MIN:+ (p-min ${MTP_DRAFT_P_MIN})}" "$GPU_LAYERS" "$MTP_GPU_LAYERS"
 printf 'KV cache: K=%s, V=%s; Flash Attention=%s\n' \
   "$CACHE_TYPE_K" "$CACHE_TYPE_V" "$FLASH_ATTN"
 printf 'Batching: batch=%s, ubatch=%s\n' "$BATCH_SIZE" "$UBATCH_SIZE"
@@ -79,7 +82,7 @@ printf 'Transcript: %s\n\n' "$log_file"
 "${LLAMA_DIR}/llama-cli" "${args[@]}" 2>&1 | tee "$log_file"
 
 printf '\n--- Extracted performance and MTP diagnostics ---\n'
-if ! grep -Ei 'prompt eval time|eval time|generation:|generated|tokens/s|tok/s|speculat|draft|accept' "$log_file"; then
+if ! grep -Ei 'prompt eval time|eval time|generation:|generated|tokens/s|tok/s|t/s|speculat|draft|accept' "$log_file"; then
   echo "No standard timing or speculative-decoding summary was found; inspect the transcript above."
 fi
 

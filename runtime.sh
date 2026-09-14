@@ -109,3 +109,46 @@ build_server_args() {
   SERVER_RUNTIME_ARGS=(--parallel "$parallel")
   export SERVER_PARALLEL
 }
+
+# Step 1 helper tuning: builds the native MTP (draft-mtp) flag set.
+# MTP_DRAFT_N_MAX is required. MTP_DRAFT_P_MIN is optional; when empty the
+# flag is omitted so older builds such as b10182 keep working. When set, the
+# caller must have a binary whose --help lists --spec-draft-p-min.
+build_mtp_args() {
+  local n_max="${MTP_DRAFT_N_MAX:-3}"
+  local p_min="${MTP_DRAFT_P_MIN:-}"
+  local draft_ngl="${MTP_GPU_LAYERS:-999}"
+
+  [[ "$n_max" =~ ^[1-9][0-9]*$ ]] || {
+    echo "ERROR: MTP_DRAFT_N_MAX must be a positive integer; got: ${n_max:-empty}" >&2
+    return 1
+  }
+  [[ "$draft_ngl" =~ ^[0-9]+$ ]] || {
+    echo "ERROR: MTP_GPU_LAYERS must be a non-negative integer; got: ${draft_ngl:-empty}" >&2
+    return 1
+  }
+
+  if [[ -n "$p_min" ]]; then
+    [[ "$p_min" =~ ^(0(\.[0-9]+)?|1(\.0*)?)$ ]] || {
+      echo "ERROR: MTP_DRAFT_P_MIN must be a number between 0 and 1; got: $p_min" >&2
+      return 1
+    }
+  fi
+
+  [[ -n "${MODEL_DIR:-}" && -n "${MTP_FILE:-}" ]] || {
+    echo "ERROR: MODEL_DIR/MTP_FILE must be configured before building MTP args." >&2
+    return 1
+  }
+
+  MTP_ARGS=(
+    --spec-type draft-mtp
+    --spec-draft-model "${MODEL_DIR}/${MTP_FILE}"
+    --spec-draft-ngl "$draft_ngl"
+    --spec-draft-n-max "$n_max"
+  )
+  [[ -n "$p_min" ]] && MTP_ARGS+=(--spec-draft-p-min "$p_min")
+  MTP_DRAFT_N_MAX="$n_max"
+  MTP_DRAFT_P_MIN="$p_min"
+  MTP_GPU_LAYERS="$draft_ngl"
+  export MTP_DRAFT_N_MAX MTP_DRAFT_P_MIN MTP_GPU_LAYERS
+}

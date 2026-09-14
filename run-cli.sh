@@ -8,18 +8,18 @@ source "${SCRIPT_DIR}/runtime.sh"
 
 REASONING_MODE="${REASONING_MODE:-auto}"
 REASONING_BUDGET="${REASONING_BUDGET:-}"
+MTP_DRAFT_N_MAX="${MTP_DRAFT_N_MAX:-3}"
+MTP_DRAFT_P_MIN="${MTP_DRAFT_P_MIN:-}"
 configure_llama_runtime
 build_reasoning_args
 build_performance_args
+build_mtp_args
 
 args=(
   --model "${MODEL_DIR}/${MODEL_FILE}"
   --gpu-layers "${GPU_LAYERS}"
   --ctx-size "${CONTEXT_SIZE}"
-  --spec-type draft-mtp
-  --spec-draft-model "${MODEL_DIR}/${MTP_FILE}"
-  --spec-draft-ngl "${MTP_GPU_LAYERS}"
-  --spec-draft-n-max "${MTP_DRAFT_N_MAX}"
+  "${MTP_ARGS[@]}"
   "${PERFORMANCE_ARGS[@]}"
   "${REASONING_ARGS[@]}"
 )

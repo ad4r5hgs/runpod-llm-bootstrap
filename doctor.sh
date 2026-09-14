@@ -45,14 +45,32 @@ check_reasoning_flags() {
   build_reasoning_args
   local help_output
   help_output="$("${LLAMA_DIR}/llama-cli" --help 2>&1 || true)"
-  grep -Eq -- '--reasoning|--reasoning-budget' <<< "$help_output"
+  grep -Fq -- '--reasoning' <<< "$help_output" || return 1
+  if [[ -n "${REASONING_BUDGET:-}" ]]; then
+    grep -Fq -- '--reasoning-budget' <<< "$help_output" || return 1
+  fi
 }
 
 check_mtp_flags() {
   configure_llama_runtime
+  build_mtp_args >/dev/null 2>&1 || return 1
   local help_output
   help_output="$("${LLAMA_DIR}/llama-cli" --help 2>&1 || true)"
-  grep -Eq -- '--spec-type|--spec-draft-model|--spec-draft-n-max' <<< "$help_output"
+  grep -Fq -- '--spec-type' <<< "$help_output" || return 1
+  grep -Fq -- '--spec-draft-model' <<< "$help_output" || return 1
+  grep -Fq -- '--spec-draft-n-max' <<< "$help_output" || return 1
+}
+
+check_mtp_pmin() {
+  # Informational only: passes when no p-min is configured, or when the
+  # binary supports it. b10182 does not list --spec-draft-p-min.
+  if [[ -z "${MTP_DRAFT_P_MIN:-}" ]]; then
+    return 0
+  fi
+  configure_llama_runtime
+  local help_output
+  help_output="$("${LLAMA_DIR}/llama-cli" --help 2>&1 || true)"
+  grep -Fq -- '--spec-draft-p-min' <<< "$help_output"
 }
 
 check_performance_flags() {
@@ -81,6 +99,7 @@ check 'llama.cpp shared libraries resolve' check_llama_libraries
 check 'llama.cpp sees CUDA' check_llama_cuda
 check 'reasoning flags supported' check_reasoning_flags
 check 'native MTP flags supported' check_mtp_flags
+check 'MTP p-min supported (only if MTP_DRAFT_P_MIN is set)' check_mtp_pmin
 check 'long-context performance flags supported' check_performance_flags
 check 'main model exists' test -f "${MODEL_DIR}/${MODEL_FILE}"
 check 'MTP model exists' test -f "${MODEL_DIR}/${MTP_FILE}"
@@ -97,9 +116,10 @@ if [[ -f "${MODEL_DIR}/${MODEL_FILE}" && -f "${MODEL_DIR}/${MTP_FILE}" ]]; then
 else
   echo "Model files are not all present."
 fi
-printf '\nConfig: llama.cpp=%s, context=%s, MTP n-max=%s, parallel=%s, KV=%s/%s, flash-attn=%s, reasoning=%s\n' \
-  "${LLAMA_CPP_TAG:-unknown}" "$CONTEXT_SIZE" "$MTP_DRAFT_N_MAX" \
+printf '\nConfig: llama.cpp=%s, context=%s, MTP n-max=%s%s, parallel=%s, KV=%s/%s, flash-attn=%s, reasoning=%s\n' \
+  "${LLAMA_CPP_TAG:-unknown}" "${CONTEXT_SIZE:-?}" "${MTP_DRAFT_N_MAX:-3}" \
+  "${MTP_DRAFT_P_MIN:+ (p-min ${MTP_DRAFT_P_MIN})}" \
   "${SERVER_PARALLEL:-1}" "${CACHE_TYPE_K:-f16}" "${CACHE_TYPE_V:-f16}" \
-  "${FLASH_ATTN:-auto}" "${REASONING_MODE}${REASONING_BUDGET:+ (budget ${REASONING_BUDGET})}"
+  "${FLASH_ATTN:-auto}" "${REASONING_MODE:-auto}${REASONING_BUDGET:+ (budget ${REASONING_BUDGET})}"
 
 exit "$fail"
