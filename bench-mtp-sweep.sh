@@ -76,16 +76,18 @@ SUMMARY_CSV="${OUT_DIR}/summary.csv"
 echo "combo,k_cache,v_cache,mtp_n_max,mtp_p_min,prompt_ts,gen_ts,accept,log" > "$SUMMARY_CSV"
 
 extract_timing() {
-  local log="$1" pline gline prompt_ts gen_ts accept
-  pline="$(grep -Eo '\[ Prompt:[^]]*\]' "$log" | tail -n1 || true)"
-  gline="$(grep -Eo '\[ Generation:[^]]*\]' "$log" | tail -n1 || true)"
-  # Fallback for builds that print a single combined line.
-  if [[ -z "$gline" ]]; then
-    gline="$(grep -Eo '\[ Prompt:[^]]*\]' "$log" | tail -n1 || true)"
+  local log="$1" clean timing_line prompt_ts gen_ts accept nums
+  # Strip ANSI colours first: llama-cli colourises the timing line on some
+  # builds, which breaks naive digit matching.
+  clean="$(sed 's/\x1b\[[0-9;]*[A-Za-z]//g' "$log" || true)"
+  timing_line="$(grep -Eo '\[ *Prompt:[^]]*\]' <<< "$clean" | tail -n1 || true)"
+  if [[ -z "$timing_line" ]]; then
+    timing_line="$(grep -Ei 'prompt.*t/s.*generation.*t/s' <<< "$clean" | tail -n1 || true)"
   fi
-  prompt_ts="$(sed -nE 's/.*Prompt:[[:space:]]*([0-9]+(\.[0-9]+)?).*/\1/p' <<< "$pline" | tail -n1)"
-  gen_ts="$(sed -nE 's/.*Generation:[[:space:]]*([0-9]+(\.[0-9]+)?).*/\1/p' <<< "$gline" | tail -n1)"
-  accept="$(grep -Eoi 'accept[^,]*' "$log" | tail -n1 || true)"
+  nums="$(grep -Eo '[0-9]+(\.[0-9]+)? *t/s' <<< "$timing_line" | grep -Eo '[0-9]+(\.[0-9]+)?' || true)"
+  prompt_ts="$(head -n1 <<< "$nums" || true)"
+  gen_ts="$(tail -n1 <<< "$nums" || true)"
+  accept="$(grep -Eoi 'accept[^,]*' <<< "$clean" | tail -n1 || true)"
   printf '%s|%s|%s' "${prompt_ts:-?}" "${gen_ts:-?}" "${accept:-n/a}"
 }
 
@@ -105,7 +107,7 @@ run_combo() {
     --batch-size "${BATCH_SIZE}"
     --ubatch-size "${UBATCH_SIZE}"
     --reasoning off
-    --no-conversation
+    --single-turn
     --n-predict "$SWEEP_N_PREDICT"
     --prompt "$SWEEP_PROMPT"
   )
