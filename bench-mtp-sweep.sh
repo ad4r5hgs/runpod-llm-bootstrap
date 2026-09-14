@@ -105,6 +105,7 @@ run_combo() {
     --batch-size "${BATCH_SIZE}"
     --ubatch-size "${UBATCH_SIZE}"
     --reasoning off
+    --no-conversation
     --n-predict "$SWEEP_N_PREDICT"
     --prompt "$SWEEP_PROMPT"
   )

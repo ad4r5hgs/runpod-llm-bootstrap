@@ -61,6 +61,7 @@ args=(
   "${MTP_ARGS[@]}"
   "${PERFORMANCE_ARGS[@]}"
   "${reasoning_args[@]}"
+  --no-conversation
   --n-predict "$TEST_N_PREDICT"
   --prompt "$TEST_PROMPT"
 )

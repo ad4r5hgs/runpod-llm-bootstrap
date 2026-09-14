@@ -281,6 +281,7 @@ smoke_test_q8() {
     "${PERFORMANCE_ARGS[@]}" \
     --n-predict "${SMOKE_N_PREDICT}" \
     "${REASONING_ARGS[@]}" \
+    --no-conversation \
     --prompt "${SMOKE_PROMPT}" 2>&1)" || {
       printf '%s\n' "$output"
       die "Q8 CUDA inference smoke test failed."
@@ -299,6 +300,7 @@ smoke_test_mtp() {
     "${MTP_ARGS[@]}" \
     "${PERFORMANCE_ARGS[@]}" \
     "${REASONING_ARGS[@]}" \
+    --no-conversation \
     --n-predict "${SMOKE_N_PREDICT}" \
     --prompt "${SMOKE_PROMPT}" 2>&1)" || {
       printf '%s\n' "$output"
