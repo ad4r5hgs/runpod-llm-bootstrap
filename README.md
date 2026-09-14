@@ -96,6 +96,25 @@ Q4_0 KV cache is a memory/performance trade-off and may affect long-context
 quality. If the full-context allocation fails on the A40, do not partially
 offload weights to CPU: lower `CONTEXT_SIZE` or use a larger GPU instead.
 
+## Full-context xhigh-thinking test
+
+After setup completes, run:
+
+```bash
+./test-xhigh-thinking.sh
+```
+
+The test uses the configured 262K KV-cache capacity, native MTP, and the same
+Flash Attention/KV-cache settings as the runtime. It asks a coding-design
+question and requests an exact 120-word final answer. The pinned `b10182`
+build does not provide a named `--reasoning-effort xhigh` option, so the script
+enables reasoning and assigns a 32,000-token reasoning budget; if a later
+llama.cpp build supports the named selector, the script passes `xhigh`
+explicitly. The terminal output includes the configured context, MTP settings,
+cache/batch settings, and llama.cpp's reported prompt/decode TPS and speculative
+decoding diagnostics. Set `TEST_TARGET_WORDS`, `TEST_REASONING_BUDGET`,
+`TEST_N_PREDICT`, or `TEST_PROMPT` in `config.env` to adjust the test.
+
 ## Remote endpoint (secondary phase)
 
 `llama-server` provides an HTTP server, web UI, and OpenAI-compatible API routes. The later remote phase should use:
