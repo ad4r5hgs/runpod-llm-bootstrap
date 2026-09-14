@@ -10,6 +10,8 @@ REASONING_MODE="${REASONING_MODE:-auto}"
 REASONING_BUDGET="${REASONING_BUDGET:-}"
 configure_llama_runtime
 build_reasoning_args
+build_performance_args
+build_server_args
 
 if [[ "${SERVER_HOST}" != "127.0.0.1" && -z "${LLAMA_API_KEY}" ]]; then
   echo "ERROR: Refusing to bind llama-server to ${SERVER_HOST} without LLAMA_API_KEY." >&2
@@ -25,6 +27,8 @@ args=(
   --spec-draft-model "${MODEL_DIR}/${MTP_FILE}"
   --spec-draft-ngl "${MTP_GPU_LAYERS}"
   --spec-draft-n-max "${MTP_DRAFT_N_MAX}"
+  "${PERFORMANCE_ARGS[@]}"
+  "${SERVER_RUNTIME_ARGS[@]}"
   "${REASONING_ARGS[@]}"
   --host "${SERVER_HOST}"
   --port "${SERVER_PORT}"

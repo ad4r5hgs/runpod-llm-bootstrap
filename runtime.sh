@@ -55,3 +55,57 @@ build_reasoning_args() {
   [[ -n "$budget" ]] && REASONING_ARGS+=(--reasoning-budget "$budget")
   export REASONING_MODE REASONING_BUDGET
 }
+
+build_performance_args() {
+  local flash_attn="${FLASH_ATTN:-auto}"
+  local cache_type_k="${CACHE_TYPE_K:-f16}"
+  local cache_type_v="${CACHE_TYPE_V:-f16}"
+  local batch_size="${BATCH_SIZE:-2048}"
+  local ubatch_size="${UBATCH_SIZE:-512}"
+
+  case "$flash_attn" in
+    on|off|auto) ;;
+    *)
+      echo "ERROR: FLASH_ATTN must be one of: on, off, auto; got: $flash_attn" >&2
+      return 1
+      ;;
+  esac
+
+  for value_name in CONTEXT_SIZE BATCH_SIZE UBATCH_SIZE; do
+    local value="${!value_name:-}"
+    [[ "$value" =~ ^[1-9][0-9]*$ ]] || {
+      echo "ERROR: ${value_name} must be a positive integer; got: ${value:-empty}" >&2
+      return 1
+    }
+  done
+
+  (( ubatch_size <= batch_size )) || {
+    echo "ERROR: UBATCH_SIZE must not exceed BATCH_SIZE." >&2
+    return 1
+  }
+
+  [[ "$cache_type_v" == "f16" || "$cache_type_v" == "f32" || "$flash_attn" != "off" ]] || {
+    echo "ERROR: Quantized CACHE_TYPE_V requires FLASH_ATTN=on or auto." >&2
+    return 1
+  }
+
+  PERFORMANCE_ARGS=(
+    --flash-attn "$flash_attn"
+    --cache-type-k "$cache_type_k"
+    --cache-type-v "$cache_type_v"
+    --batch-size "$batch_size"
+    --ubatch-size "$ubatch_size"
+  )
+  export FLASH_ATTN CACHE_TYPE_K CACHE_TYPE_V BATCH_SIZE UBATCH_SIZE
+}
+
+build_server_args() {
+  local parallel="${SERVER_PARALLEL:-1}"
+  [[ "$parallel" =~ ^[1-9][0-9]*$ ]] || {
+    echo "ERROR: SERVER_PARALLEL must be a positive integer; got: ${parallel:-empty}" >&2
+    return 1
+  }
+
+  SERVER_RUNTIME_ARGS=(--parallel "$parallel")
+  export SERVER_PARALLEL
+}

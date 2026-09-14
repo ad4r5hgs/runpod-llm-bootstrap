@@ -221,8 +221,22 @@ verify_llama_cuda() {
   fi
 }
 
-verify_reasoning_config() {
+verify_runtime_config() {
   build_reasoning_args || die "Invalid reasoning configuration."
+  build_performance_args || die "Invalid performance configuration."
+  build_server_args || die "Invalid server configuration."
+}
+
+verify_performance_flags() {
+  local help_output
+  help_output="$("${LLAMA_DIR}/llama-cli" --help 2>&1)" || die "llama-cli --help failed."
+
+  for flag in --flash-attn --cache-type-k --cache-type-v --batch-size --ubatch-size; do
+    grep -Fq -- "$flag" <<< "$help_output" || die "Pinned llama.cpp build does not support ${flag}; select a compatible build before running the full-context experiment."
+  done
+
+  help_output="$("${LLAMA_DIR}/llama-server" --help 2>&1)" || die "llama-server --help failed."
+  grep -Fq -- '--parallel' <<< "$help_output" || die "Pinned llama.cpp build does not support --parallel."
 }
 
 model_size_bytes() {
@@ -259,6 +273,7 @@ smoke_test_q8() {
     --model "${MODEL_DIR}/${MODEL_FILE}" \
     --gpu-layers "${GPU_LAYERS}" \
     --ctx-size "${SMOKE_CTX_SIZE}" \
+    "${PERFORMANCE_ARGS[@]}" \
     --n-predict "${SMOKE_N_PREDICT}" \
     "${REASONING_ARGS[@]}" \
     --prompt "${SMOKE_PROMPT}" 2>&1)" || {
@@ -280,6 +295,7 @@ smoke_test_mtp() {
     --spec-draft-model "${MODEL_DIR}/${MTP_FILE}" \
     --spec-draft-ngl "${MTP_GPU_LAYERS}" \
     --spec-draft-n-max "${MTP_DRAFT_N_MAX}" \
+    "${PERFORMANCE_ARGS[@]}" \
     "${REASONING_ARGS[@]}" \
     --n-predict "${SMOKE_N_PREDICT}" \
     --prompt "${SMOKE_PROMPT}" 2>&1)" || {
@@ -306,6 +322,12 @@ GPU_LAYERS=${GPU_LAYERS}
 MTP_GPU_LAYERS=${MTP_GPU_LAYERS}
 MTP_DRAFT_N_MAX=${MTP_DRAFT_N_MAX}
 CONTEXT_SIZE=${CONTEXT_SIZE}
+FLASH_ATTN=${FLASH_ATTN}
+CACHE_TYPE_K=${CACHE_TYPE_K}
+CACHE_TYPE_V=${CACHE_TYPE_V}
+BATCH_SIZE=${BATCH_SIZE}
+UBATCH_SIZE=${UBATCH_SIZE}
+SERVER_PARALLEL=${SERVER_PARALLEL}
 REASONING_MODE=${REASONING_MODE}
 REASONING_BUDGET=${REASONING_BUDGET}
 SETUP_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -323,11 +345,12 @@ main() {
 
   verify_platform
   verify_gpu
-  verify_reasoning_config
+  verify_runtime_config
   check_free_space_gb "$MODEL_DIR" "$MIN_FREE_DISK_GIB"
   install_hf_cli
   install_llama_binary
   verify_llama_cuda
+  verify_performance_flags
 
   if [[ ! -f "${MODEL_DIR}/${MODEL_FILE}" ]]; then
     download_model_file "$MODEL_FILE"

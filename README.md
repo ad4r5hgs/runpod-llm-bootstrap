@@ -10,9 +10,9 @@ This repository bootstraps a reproducible RunPod environment for the validated t
 - Main model: `philbert440/Qwen3.8-27B-Uncensored-Aggressive-GGUF`
 - Main quant: Q8_0
 - MTP head: Q8_0
-- Default runtime context: 65,536 tokens
-- Default MTP draft length: 4
-- Default reasoning mode: `auto` (`b10182` does not support the newer `--reasoning-effort` preset)
+- Default runtime context: 262,144 tokens (experimental full-context allocation)
+- Default MTP draft length: 3
+- Default reasoning mode: `off` for the throughput experiment (`b10182` does not support the newer `--reasoning-effort` preset)
 
 The selected Philbert GGUF repository is the α=1.15 Aggressive recipe. The repository contains the main Q8_0 weights (~28.6 GB), an MTP Q8_0 head (~3.16 GB), and optional vision projector files. The file names use `Balanced` even though the repository itself is named `Aggressive`; do not rename them.
 
@@ -31,7 +31,7 @@ cp config.env.example config.env
 ./run-cli.sh
 ```
 
-`setup.sh` is intentionally fail-fast. It validates the host, downloads the validated prebuilt CUDA llama.cpp package, configures its shared-library path, downloads the Q8 and MTP model files, verifies CUDA visibility, then runs a short real inference smoke test with and without MTP. It does not clone or compile llama.cpp.
+`setup.sh` is intentionally fail-fast. It validates the host, downloads the validated prebuilt CUDA llama.cpp package, configures its shared-library path, downloads the Q8 and MTP model files, verifies CUDA visibility, then runs a short real inference smoke test with and without MTP. The default smoke test allocates the full 262K KV cache, so it is an intentional fit test on a paid GPU. It does not clone or compile llama.cpp.
 
 ## Environment detection
 
@@ -75,21 +75,26 @@ The intended RunPod setup is ephemeral container storage. The model files are re
 1. Q8 main model on CUDA with MTP disabled.
 2. Q8 main model + native MTP (`draft-mtp`) using the Q8 MTP head.
 
-The smoke tests use a small context and only a few predicted tokens to avoid wasting paid GPU time. They are intended to prove that the environment and exact model files can actually execute, not to benchmark performance.
+The smoke tests use only a few predicted tokens, but the configured 262K context
+still allocates the full KV cache. They are intended to prove that the exact
+full-context configuration fits and executes, not to benchmark performance.
 
 ## Runtime
 
-`run-cli.sh` starts the configured interactive configuration:
+`run-cli.sh` starts the configured full-context throughput experiment:
 
 - Q8_0
 - all model layers on GPU
-- 64K context
+- 262K context, one active sequence
 - native MTP
-- MTP `n-max=4`
-- `--reasoning auto` by default; optionally add a numeric `REASONING_BUDGET`
+- MTP `n-max=3`
+- Flash Attention with Q4_0 K/V cache
+- reasoning disabled by default; optionally re-enable it or add a numeric `REASONING_BUDGET`
   in `config.env`
 
-Set `CONTEXT_SIZE=131072` only after separately confirming that 128K is stable on the target GPU.
+Q4_0 KV cache is a memory/performance trade-off and may affect long-context
+quality. If the full-context allocation fails on the A40, do not partially
+offload weights to CPU: lower `CONTEXT_SIZE` or use a larger GPU instead.
 
 ## Remote endpoint (secondary phase)
 

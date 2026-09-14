@@ -55,6 +55,18 @@ check_mtp_flags() {
   grep -Eq -- '--spec-type|--spec-draft-model|--spec-draft-n-max' <<< "$help_output"
 }
 
+check_performance_flags() {
+  configure_llama_runtime
+  local help_output
+  help_output="$("${LLAMA_DIR}/llama-server" --help 2>&1 || true)"
+  grep -Eq -- '--flash-attn' <<< "$help_output" &&
+    grep -Eq -- '--cache-type-k' <<< "$help_output" &&
+    grep -Eq -- '--cache-type-v' <<< "$help_output" &&
+    grep -Eq -- '--batch-size' <<< "$help_output" &&
+    grep -Eq -- '--ubatch-size' <<< "$help_output" &&
+    grep -Eq -- '--parallel' <<< "$help_output"
+}
+
 check_disk_headroom() {
   local avail_kb
   avail_kb="$(df -Pk "${MODEL_DIR}" | awk 'NR==2 {print $4}')"
@@ -69,6 +81,7 @@ check 'llama.cpp shared libraries resolve' check_llama_libraries
 check 'llama.cpp sees CUDA' check_llama_cuda
 check 'reasoning flags supported' check_reasoning_flags
 check 'native MTP flags supported' check_mtp_flags
+check 'long-context performance flags supported' check_performance_flags
 check 'main model exists' test -f "${MODEL_DIR}/${MODEL_FILE}"
 check 'MTP model exists' test -f "${MODEL_DIR}/${MTP_FILE}"
 check 'disk headroom >= 5 GiB' check_disk_headroom
@@ -84,8 +97,9 @@ if [[ -f "${MODEL_DIR}/${MODEL_FILE}" && -f "${MODEL_DIR}/${MTP_FILE}" ]]; then
 else
   echo "Model files are not all present."
 fi
-printf '\nConfig: llama.cpp=%s, context=%s, MTP n-max=%s, reasoning=%s\n' \
+printf '\nConfig: llama.cpp=%s, context=%s, MTP n-max=%s, parallel=%s, KV=%s/%s, flash-attn=%s, reasoning=%s\n' \
   "${LLAMA_CPP_TAG:-unknown}" "$CONTEXT_SIZE" "$MTP_DRAFT_N_MAX" \
-  "${REASONING_MODE}${REASONING_BUDGET:+ (budget ${REASONING_BUDGET})}"
+  "${SERVER_PARALLEL:-1}" "${CACHE_TYPE_K:-f16}" "${CACHE_TYPE_V:-f16}" \
+  "${FLASH_ATTN:-auto}" "${REASONING_MODE}${REASONING_BUDGET:+ (budget ${REASONING_BUDGET})}"
 
 exit "$fail"

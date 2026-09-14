@@ -10,6 +10,7 @@ REASONING_MODE="${REASONING_MODE:-auto}"
 REASONING_BUDGET="${REASONING_BUDGET:-}"
 configure_llama_runtime
 build_reasoning_args
+build_performance_args
 
 args=(
   --model "${MODEL_DIR}/${MODEL_FILE}"
@@ -19,6 +20,7 @@ args=(
   --spec-draft-model "${MODEL_DIR}/${MTP_FILE}"
   --spec-draft-ngl "${MTP_GPU_LAYERS}"
   --spec-draft-n-max "${MTP_DRAFT_N_MAX}"
+  "${PERFORMANCE_ARGS[@]}"
   "${REASONING_ARGS[@]}"
 )
 
