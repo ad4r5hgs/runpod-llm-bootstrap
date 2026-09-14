@@ -26,10 +26,26 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   exit 1
 fi
 
+# Command-line env overrides win over config.env (e.g.
+# SWEEP_KV_PAIRS="q8_0:q8_0" ./bench-mtp-sweep.sh). Save them before sourcing.
+ENV_SWEEP_N_MAX_LIST="${SWEEP_N_MAX_LIST:-}"
+ENV_SWEEP_EXTRA_N_MAX="${SWEEP_EXTRA_N_MAX:-}"
+ENV_SWEEP_EXTRA_P_MIN="${SWEEP_EXTRA_P_MIN:-}"
+ENV_SWEEP_KV_PAIRS="${SWEEP_KV_PAIRS:-}"
+ENV_SWEEP_N_PREDICT="${SWEEP_N_PREDICT:-}"
+ENV_SWEEP_PROMPT="${SWEEP_PROMPT:-}"
+
 # shellcheck disable=SC1090
 source "$CONFIG_FILE"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/runtime.sh"
+
+[[ -n "$ENV_SWEEP_N_MAX_LIST" ]] && SWEEP_N_MAX_LIST="$ENV_SWEEP_N_MAX_LIST"
+[[ -n "$ENV_SWEEP_EXTRA_N_MAX" ]] && SWEEP_EXTRA_N_MAX="$ENV_SWEEP_EXTRA_N_MAX"
+[[ -n "$ENV_SWEEP_EXTRA_P_MIN" ]] && SWEEP_EXTRA_P_MIN="$ENV_SWEEP_EXTRA_P_MIN"
+[[ -n "$ENV_SWEEP_KV_PAIRS" ]] && SWEEP_KV_PAIRS="$ENV_SWEEP_KV_PAIRS"
+[[ -n "$ENV_SWEEP_N_PREDICT" ]] && SWEEP_N_PREDICT="$ENV_SWEEP_N_PREDICT"
+[[ -n "$ENV_SWEEP_PROMPT" ]] && SWEEP_PROMPT="$ENV_SWEEP_PROMPT"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
