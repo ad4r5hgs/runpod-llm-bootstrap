@@ -91,20 +91,22 @@ mkdir -p "$OUT_DIR"
 SUMMARY_CSV="${OUT_DIR}/summary.csv"
 echo "combo,k_cache,v_cache,mtp_n_max,mtp_p_min,prompt_ts,gen_ts,accept,log" > "$SUMMARY_CSV"
 
-extract_timing() {
-  local log="$1" clean timing_line prompt_ts gen_ts accept nums
-  # Strip ANSI colours first: llama-cli colourises the timing line on some
-  # builds, which breaks naive digit matching.
-  clean="$(sed 's/\x1b\[[0-9;]*[A-Za-z]//g' "$log" || true)"
-  timing_line="$(grep -Eo '\[ *Prompt:[^]]*\]' <<< "$clean" | tail -n1 || true)"
-  if [[ -z "$timing_line" ]]; then
-    timing_line="$(grep -Ei 'prompt.*t/s.*generation.*t/s' <<< "$clean" | tail -n1 || true)"
-  fi
-  nums="$(grep -Eo '[0-9]+(\.[0-9]+)? *t/s' <<< "$timing_line" | grep -Eo '[0-9]+(\.[0-9]+)?' || true)"
+extract_timing_text() {
+  local text="$1" clean timing_line prompt_ts gen_ts accept nums
+  # Strip colours + carriage returns, then grab the combined timing line.
+  # Parsing the in-memory output (not the log file) so a full disk or odd
+  # log encoding can never blind the summary again.
+  clean="$(printf '%s' "$text" | sed $'s/\033\[[0-9;]*[A-Za-z]//g' | tr -d '\r' || true)"
+  timing_line="$(printf '%s' "$clean" | grep -Ei 'prompt.*t/s.*generation.*t/s' | tail -n1 || true)"
+  nums="$(printf '%s' "$timing_line" | grep -Eo '[0-9]+(\.[0-9]+)? *t/s' | grep -Eo '[0-9]+(\.[0-9]+)?' || true)"
   prompt_ts="$(head -n1 <<< "$nums" || true)"
   gen_ts="$(tail -n1 <<< "$nums" || true)"
-  accept="$(grep -Eoi 'accept[^,]*' <<< "$clean" | tail -n1 || true)"
+  accept="$(printf '%s' "$clean" | grep -Eoi 'accept[^,]*' | tail -n1 || true)"
   printf '%s|%s|%s' "${prompt_ts:-?}" "${gen_ts:-?}" "${accept:-n/a}"
+}
+
+extract_timing() {
+  extract_timing_text "$(cat "$1" 2>/dev/null || true)"
 }
 
 run_combo() {
@@ -158,7 +160,7 @@ run_combo() {
     return 0
   fi
 
-  IFS='|' read -r prompt_ts gen_ts accept <<< "$(extract_timing "$log")"
+  IFS='|' read -r prompt_ts gen_ts accept <<< "$(extract_timing_text "$output")"
   echo "RESULT: prompt ${prompt_ts} t/s, generation ${gen_ts} t/s, ${accept}"
   echo "${label},${k_cache},${v_cache},${n_max},${p_min},${prompt_ts},${gen_ts},\"${accept}\",${log}" >> "$SUMMARY_CSV"
 }
