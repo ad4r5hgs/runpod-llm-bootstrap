@@ -47,7 +47,10 @@ The bootstrap therefore validates:
 6. Actual Q8 inference.
 7. Actual Q8 + native MTP inference.
 
-A40 is the validated target. Other NVIDIA GPUs can be permitted by setting `REQUIRE_A40=false`, provided they meet the configured VRAM requirement and pass the CUDA smoke test.
+A40 48GB is the validated card. Any NVIDIA GPU is allowed by default as long as
+it meets the configured VRAM minimum and passes the CUDA + inference smoke
+tests; set `REQUIRE_A40=true` to enforce A40-only. After switching cards,
+re-run `bench-mtp-sweep.sh` because the fastest helper depth varies by GPU.
 
 ## Prebuilt llama.cpp note
 

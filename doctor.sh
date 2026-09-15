@@ -23,7 +23,7 @@ check() {
 check_gpu_target() {
   local gpu_name
   gpu_name="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n1)"
-  if [[ "${REQUIRE_A40:-true}" == "true" ]]; then
+  if [[ "${REQUIRE_A40:-false}" == "true" ]]; then
     [[ "$gpu_name" == *"A40" ]]
   else
     [[ -n "$gpu_name" ]]

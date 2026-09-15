@@ -58,10 +58,10 @@ verify_gpu() {
   [[ -n "$gpu_name" ]] || die "NVIDIA GPU not detected."
   [[ -n "$gpu_mem_mib" ]] || die "Could not determine GPU memory."
   [[ "$gpu_name" == *"A40"* ]] || {
-    if [[ "${REQUIRE_A40:-true}" == "true" ]]; then
-      die "Expected an NVIDIA A40; detected: ${gpu_name}. Set REQUIRE_A40=false only if you intentionally want to run on another supported NVIDIA GPU."
+    if [[ "${REQUIRE_A40:-false}" == "true" ]]; then
+      die "Expected an NVIDIA A40; detected: ${gpu_name}. Set REQUIRE_A40=false to allow another NVIDIA GPU with enough VRAM."
     fi
-    log "WARNING: detected ${gpu_name}; A40 is the validated target."
+    log "WARNING: detected ${gpu_name}; A40 48GB is the validated target. Other GPUs must re-run bench-mtp-sweep.sh: best helper depth and speed vary by card."
   }
 
   local min_vram_mib=$((MIN_VRAM_GIB * 1024))
@@ -211,12 +211,12 @@ verify_runtime_dependencies() {
 }
 
 verify_llama_cuda() {
-  log "Verifying CUDA backend and A40 visibility..."
+  log "Verifying CUDA backend and GPU visibility..."
   local devices
   devices="$(${LLAMA_DIR}/llama-cli --list-devices 2>&1)" || die "llama-cli could not enumerate devices."
   echo "$devices"
   echo "$devices" | grep -q 'CUDA0:' || die "Prebuilt llama.cpp does not expose a CUDA backend."
-  if [[ "${REQUIRE_A40:-true}" == "true" ]]; then
+  if [[ "${REQUIRE_A40:-false}" == "true" ]]; then
     echo "$devices" | grep -q 'NVIDIA A40' || die "llama.cpp does not see the NVIDIA A40."
   fi
 }
